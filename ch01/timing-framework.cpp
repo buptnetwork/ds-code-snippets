@@ -1,6 +1,7 @@
 /*
- * 第 1 章 绪论 · 计时与倍增实验框架，输出 n / time / ratio 三列
- * 共用页：1.18.3 计时 / 1.18.4 倍增实验验证复杂度（作业实验一主线）
+ * 第 1 章 绪论 · 计时与倍增实验：已学循环骨架，不要求排序前置知识。
+ * 单调时钟、批量重复、5组中位数；有限数据只检查模型，不证明渐近界。
+ * 不同骨架完成不同工作，不能按绝对耗时评选“最好算法”。
  *
  * 运行方式（实验一律统一 -O2，并把编译选项写进报告）：
  *   g++ -std=c++17 -O2 -Wall -Wextra -o /tmp/timing snippets/ch01/timing-framework.cpp && /tmp/timing
@@ -11,98 +12,143 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#include <assert.h>
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 
-/* ---- 被测算法（与 sorts.cpp 一致，此处内联以便单文件运行）---- */
-static void bubble_sort(int a[], int n)
+/* volatile 输入读取保留循环中的访存工作，避免被常量折叠或移出批量循环。
+ * 这是可解释的教学基准，会影响优化，不代表生产实现的绝对性能。
+ */
+using Kernel = unsigned long long (*)(const volatile int *, int);
+static volatile unsigned long long sink;
+
+// #region kernels
+static unsigned long long linear_work(const volatile int a[], int n)
 {
-    for (int i = 0; i < n - 1; i++) {
-        int swapped = 0;
-        for (int j = 0; j < n - 1 - i; j++)
-            if (a[j] > a[j + 1]) {
-                int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t; swapped = 1;
-            }
-        if (!swapped) break;
-    }
+    unsigned long long sum = 0;
+    for (int i = 0; i < n; i++) sum += a[i];
+    return sum;
 }
 
-static void msort(int a[], int tmp[], int lo, int hi);
-static void merge(int a[], int tmp[], int lo, int mid, int hi)
+static unsigned long long triangle_work(const volatile int a[], int n)
 {
-    int i = lo, j = mid + 1, k = lo;
-    while (i <= mid && j <= hi) tmp[k++] = (a[i] <= a[j]) ? a[i++] : a[j++];
-    while (i <= mid) tmp[k++] = a[i++];
-    while (j <= hi)  tmp[k++] = a[j++];
-    for (int t = lo; t <= hi; t++) a[t] = tmp[t];
+    unsigned long long equal_pairs = 0;
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < i; j++)
+            equal_pairs += (a[i] == a[j]);
+    return equal_pairs;
 }
-static void msort(int a[], int tmp[], int lo, int hi)
+
+static unsigned long long nlogn_work(const volatile int a[], int n)
 {
-    if (lo >= hi) return;
-    int mid = lo + (hi - lo) / 2;
-    msort(a, tmp, lo, mid);
-    msort(a, tmp, mid + 1, hi);
-    merge(a, tmp, lo, mid, hi);
+    unsigned long long sum = 0;
+    for (int i = 0; i < n; i++)
+        for (long long j = 1; j <= n; j *= 2)
+            sum += a[j - 1];
+    return sum;
 }
-static void merge_sort(int a[], int n)
-{
-    if (n <= 1) return;
-    int *tmp = (int *)malloc(n * sizeof(int));
-    msort(a, tmp, 0, n - 1);
-    free(tmp);
-}
+// #endregion kernels
 
 /* ---- 数据生成（不计时）---- */
 static int *gen_random(int n)
 {
-    int *d = (int *)malloc(n * sizeof(int));
-    for (int i = 0; i < n; i++) d[i] = rand();
+    int *d = (int *)malloc((size_t)n * sizeof(int));
+    if (!d) { perror("数据分配失败"); exit(EXIT_FAILURE); }
+    for (int i = 0; i < n; i++) d[i] = rand() % 1000;
     return d;
 }
 
 // #region measure
-/* 计时：只包核心算法。数据生成、输入输出、malloc 全部排除在计时区间之外。
- * 单次太短（< 10ms）时应重复多轮再取平均，本框架对每个 n 重复 rep 次。
+/* 计时包含被测函数与批量调用的少量开销，不含造数据和打印。
+ * 本例只读输入，不需复位；换成修改输入的算法时必须另行设计复位边界。
  */
-double measure(void (*algo)(int *, int), int *data, int n, int rep)
+static double run_batch(Kernel algo, const volatile int *data, int n, int reps)
 {
-    int *buf = (int *)malloc(n * sizeof(int));
-    double acc = 0;
-    for (int r = 0; r < rep; r++) {
-        for (int i = 0; i < n; i++) buf[i] = data[i];   /* 每轮复位：在计时区间之外 */
-        clock_t start = clock();
-        algo(buf, n);                                    /* 只包核心算法 */
-        clock_t end = clock();
-        acc += (double)(end - start) / CLOCKS_PER_SEC;
+    unsigned long long checksum = 0;
+    auto start = std::chrono::steady_clock::now();
+    for (int r = 0; r < reps; r++) checksum += algo(data, n);
+    auto end = std::chrono::steady_clock::now();
+    sink = checksum;
+    return std::chrono::duration<double>(end - start).count();
+}
+
+/* 先把批量时长校准到约10ms，再测5组，返回单次时间的中位数。 */
+double measure(Kernel algo, const volatile int *data, int n,
+               int *used_reps = nullptr, double *raw_batch_seconds = nullptr)
+{
+    int reps = 1;
+    const int max_reps = 1 << 20;
+    double elapsed = run_batch(algo, data, n, reps);
+    while (elapsed < 0.01 && reps < max_reps) {
+        reps *= 2;
+        elapsed = run_batch(algo, data, n, reps);
     }
-    free(buf);
-    return acc / rep;
+    if (elapsed < 0.01)
+        fprintf(stderr, "n=%d：批量时长仍不足10ms，请谨慎解释比值\n", n);
+    double samples[5];
+    for (int r = 0; r < 5; r++) {
+        double batch = run_batch(algo, data, n, reps);
+        if (raw_batch_seconds) raw_batch_seconds[r] = batch;
+        samples[r] = batch / reps;
+    }
+    std::sort(samples, samples + 5);
+    if (used_reps) *used_reps = reps;
+    return samples[2];
 }
 // #endregion measure
 
 // #region main
-/* 倍增实验：n 取一串倍增的规模，算相邻比值 t(2n)/t(n)，由 k≈log₂(比值) 反推指数 */
-static void doubling(void (*algo)(int *, int), const char *name,
-                     int n0, int nmax, int rep)
+/* 局部比值与归一化值提供证据，不把指定ratio当作测试断言。 */
+static void doubling(Kernel algo, const char *name, int nmax)
 {
-    printf("\n=== %s ===\n%8s %12s %8s\n", name, "n", "time(s)", "ratio");
+    printf("\n%s\n%8s %12s %8s %8s %12s %12s %12s\n",
+           name, "n", "time(s)", "ratio", "reps", "t/n", "t/(n log2n)", "t/n^2");
     double prev = 0;
-    for (int n = n0; n <= nmax; n *= 2) {
-        int *data = gen_random(n);              /* 数据生成不计时 */
-        double t = measure(algo, data, n, rep);
-        printf("%8d %12.5f %8.2f\n", n, t, prev > 0 ? t / prev : 0.0);
+    for (int n = 1000; n <= nmax; n *= 2) {
+        int *data = gen_random(n);
+        int reps;
+        double raw[5];
+        double t = measure(algo, data, n, &reps, raw);
+        printf("%8d %12.8f ", n, t);
+        if (prev > 0 && t > 0) printf("%8.3f ", t / prev);
+        else printf("%8s ", "--");
+        printf("%8d %12.3e %12.3e %12.3e\n", reps,
+               t / n, t / (n * std::log2(n)), t / ((double)n * n));
+        printf("  5组原始批量秒数（每组%d次）：", reps);
+        for (double batch : raw) printf(" %.9f", batch);
+        putchar('\n');
         prev = t;
-        free(data);                             /* 上次课：有分配必有释放 */
+        free(data);
     }
 }
 
 int main(void)
 {
+    int test[] = {1, 1, 2, 2};
+    assert(linear_work(test, 4) == 6);
+    assert(triangle_work(test, 4) == 2);
+    assert(nlogn_work(test, 4) == 16);
+    assert(linear_work(nullptr, 0) == 0);
+    assert(triangle_work(nullptr, 0) == 0);
+    assert(nlogn_work(nullptr, 0) == 0);
+    assert(triangle_work(test, 1) == 0);
+    int ones[64];
+    for (int &value : ones) value = 1;
+    for (int n = 0; n <= 64; n++) {
+        unsigned long long levels = 0;
+        for (int v = n; v > 0; v /= 2) levels++;
+        assert(linear_work(ones, n) == (unsigned)n);
+        assert(triangle_work(ones, n) == (unsigned)(n * (n - 1) / 2));
+        assert(nlogn_work(ones, n) == n * levels);
+    }
+    printf("三个循环骨架的结果与边界自测通过\n");
     srand(20260915);
-    /* 冒泡 O(n²)：规模控制在 30 秒内，比值应 ≈ 4 */
-    doubling(bubble_sort, "冒泡排序（预期 ratio≈4 → O(n^2)）", 1000, 16000, 1);
-    /* 归并 O(n log n)：比值应 ≈ 2.1~2.3 */
-    doubling(merge_sort, "归并排序（预期 ratio≈2.1~2.3 → O(n log n)）", 1000, 128000, 1);
-    printf("\n反推：k ≈ log2(ratio)。比值≈4 → k≈2；比值≈2 → k≈1。\n");
+    printf("steady_clock；5组批量时间的中位数；读取volatile输入的教学基准\n");
+    doubling(linear_work, "单层扫描：基本操作n次", 128000);
+    doubling(triangle_work, "三角循环：元素比较n(n-1)/2次", 16000);
+    doubling(nlogn_work, "线性外层×翻倍内层：n(floor(log2n)+1)次", 128000);
+    printf("\n校验值=%llu；有限测量只支持或质疑模型，不证明渐近界。\n", sink);
     return 0;
 }
 // #endregion main

@@ -1,6 +1,6 @@
 /*
  * 第 1 章 绪论 · 顺序查找（含 assert 版本）
- * 共用页：1.10.3 三种写法 / 1.15.1 最好最坏平均 / 1.18.2 断言
+ * 共用主题：算法描述 / 最好最坏平均 / 前置条件断言。
  *
  * 运行方式：
  *   g++ -std=c++17 -Wall -Wextra -o /tmp/seq-search snippets/ch01/seq-search.cpp && /tmp/seq-search
@@ -13,10 +13,9 @@
 #include <stdio.h>
 
 // #region plain
-/* 顺序查找：从头到尾逐个比较，命中返回下标，找不到返回 -1
- * 最好 O(1)：第 1 个就命中
- * 最坏 O(n)：在末尾或根本不存在
- * 平均：key 一定存在且等概率时，比较 (n + 1) / 2 次  =>  O(n)
+/* 顺序查找：从头到尾逐个比较，返回首次命中下标，找不到返回 -1。
+ * n>=1：最好 Θ(1)，第1个就命中；最坏 Θ(n)，在末尾或不存在。
+ * 元素互异、key一定存在且等概率位于每个位置时，平均比较(n+1)/2次，Θ(n)。
  */
 int seq_search(const int a[], int n, int key)
 {
@@ -56,13 +55,18 @@ int main(void)
 
     /* 边界情况：n = 0 空输入，不得越界 */
     assert(seq_search(a, 0, 11) == -1);
+    assert(seq_search(NULL, 0, 11) == -1);
     /* 边界情况：n = 1 单元素 */
     assert(seq_search(a, 1, 11) == 0);
     assert(seq_search(a, 1, 22) == -1);
 
     /* 带断言版本结果一致 */
     assert(seq_search_checked(a, 5, 44) == 3);
+    assert(seq_search_checked(NULL, 0, 11) == -1);
+    int duplicate[] = {2, 2, 1};
+    assert(seq_search(duplicate, 3, 2) == 0);
+    assert(seq_search_checked(duplicate, 3, 2) == 0);
 
-    printf("all tests passed\n");
+    printf("顺序查找边界与首次命中测试通过\n");
     return 0;
 }

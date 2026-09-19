@@ -1,6 +1,6 @@
 /*
  * 第 1 章 绪论 · 二进制计数器加 1，统计总位翻转次数
- * 共用页：1.16.3（记账法/聚合分析的第二个例子）
+ * 选读主题：记账法与二进制计数器。
  *
  * 运行方式：
  *   g++ -std=c++17 -Wall -Wextra -o /tmp/bincounter snippets/ch01/bincounter.cpp && /tmp/bincounter
@@ -9,13 +9,14 @@
  */
 
 #include <stdio.h>
+#include <assert.h>
 
 #define K 8                       /* 计数器位宽 */
 
 // #region inc
 /* 对 k 位二进制计数器做 +1，返回本次翻转的位数。
  * 基本操作 = 位翻转次数：从最低位起，遇 1 翻成 0 继续进位，遇 0 翻成 1 停止。
- * 最坏单次 O(k)（全为 1 时全部进位），但连续 n 次的总翻转数 < 2n。
+ * 最坏单次 O(k)（全为1时进位后回到0）；从全0开始，连续n>=1次总翻转数<2n。
  */
 int increment(unsigned char bits[], int k)
 {
@@ -53,13 +54,27 @@ int main(void)
         printf("  %5d\n", f);
     }
 
-    /* 聚合验证：连续 n 次 +1 的总翻转数 < 2n */
+    /* 核对每个前缀，包含255→0的溢出边界；实验只核对，不替代一般证明。 */
     unsigned char b2[K] = { 0 };
-    int n = 200;                       /* 200 < 2^K，不会溢出 */
-    long sum = 0;
-    for (int i = 0; i < n; i++) sum += increment(b2, K);
-    printf("\n连续 %d 次 +1，总翻转 = %ld，2n = %d  =>  %s\n",
-           n, sum, 2 * n, sum < 2 * n ? "总翻转 < 2n，摊还 O(1) 成立" : "异常");
-    printf("按位聚合：第 j 位翻转 n/2^j 次，Σ = n + n/2 + n/4 + … < 2n\n");
+    int n = 512;
+    long sum = 0, by_bit[K] = {0};
+    for (int step = 1; step <= n; step++) {
+        unsigned char before[K];
+        for (int j = 0; j < K; j++) before[j] = b2[j];
+        int flips = increment(b2, K), observed = 0, value = 0;
+        for (int j = 0; j < K; j++) {
+            int changed = before[j] != b2[j];
+            observed += changed;
+            by_bit[j] += changed;
+            assert(by_bit[j] == step / (1 << j));
+            value += b2[j] * (1 << j);
+        }
+        assert(flips == observed && value == step % (1 << K));
+        sum += flips;
+        assert(sum < 2L * step);
+    }
+    printf("\n前%d次的计数与溢出边界通过，总翻转=%ld < 2n=%d\n", n, sum, 2*n);
+    for (int j = 0; j < K; j++) printf("第%d位翻转%ld次\n", j, by_bit[j]);
+    printf("按位聚合公式：第j位翻转floor(n/2^j)次；有限k位求和<2n（n>=1）。\n");
     return 0;
 }

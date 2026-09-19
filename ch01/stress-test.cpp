@@ -1,6 +1,7 @@
 /*
  * 第 1 章 绪论 · 对拍框架（stress testing）
- * 含一个「在含重复元素时出错」的排序，供现场演示对拍抓 bug。
+ * 契约：返回 key 首次出现的下标；不存在返回 -1。
+ * 故意错误版本返回最后一次命中；先固定反例，再随机对拍。
  * 共用页：1.18.2
  *
  * 运行方式：
@@ -11,75 +12,72 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#include <assert.h>
 
 // #region naive
-/* 朴素但确信正确的排序（插入排序）——对拍的「标准答案」 */
-void naive_sort(int a[], int n)
+/* 参考实现：遇到第一次匹配立即返回。 */
+int reference_search(const int a[], int n, int key)
 {
-    for (int i = 1; i < n; i++) {
-        int key = a[i], j = i - 1;
-        while (j >= 0 && a[j] > key) { a[j + 1] = a[j]; j--; }
-        a[j + 1] = key;
-    }
+    for (int i = 0; i < n; i++)
+        if (a[i] == key) return i;
+    return -1;
 }
 // #endregion naive
 
 // #region buggy
-/* 待测算法：一个「自作聪明」的冒泡排序。
- * BUG：本趟遇到一对相等元素，就误判为「已无逆序」而提前退出，
- * 于是当数组里混有重复元素、且相等对出现在尚未排好序的位置时，排序不完整。
- * 元素全不相同时它表现正常 —— 正是这种「大多数时候对」的 bug 最难肉眼发现。
+/* 故意错误：后续命中覆盖已有结果，违反“首次命中”契约。
+ * 固定反例：[2,2,1] 查找2，期望0，实际1。
  */
-void bad_sort(int a[], int n)
+int bad_search(const int a[], int n, int key)
 {
-    for (int i = 0; i < n - 1; i++) {
-        int swapped = 0;
-        for (int j = 0; j < n - 1 - i; j++) {
-            if (a[j] == a[j + 1]) { swapped = 0; break; }   /* 误判：见相等即收工 */
-            if (a[j] > a[j + 1]) {
-                int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t;
-                swapped = 1;
-            }
-        }
-        if (!swapped) break;
-    }
+    int found = -1;
+    for (int i = 0; i < n; i++)
+        if (a[i] == key) found = i;
+    return found;
 }
 // #endregion buggy
 
 // #region frame
-/* 对拍骨架（可直接用于作业）：
- * ① 小规模（n ≤ 9）——抓到反例才看得懂；② 小值域（0..4）——制造重复元素。
- * 同时跑待测算法与朴素算法，输出不一致就打印反例并退出。
+/* 小规模、小值域，保留原始输入。发现差异返回1，未发现返回0。
+ * 随机测试是补充；通过有限轮次不构成正确性证明。
  */
-int stress(void (*my_sort)(int *, int), int rounds)
+int stress(int (*my_search)(const int *, int, int), int rounds)
 {
     for (int t = 0; t < rounds; t++) {
-        int n = rand() % 10;                       /* 0..9，含空数组与单元素 */
-        int a[10], b[10];
-        for (int i = 0; i < n; i++) { a[i] = rand() % 5; b[i] = a[i]; }
-        my_sort(a, n);
-        naive_sort(b, n);
-        for (int i = 0; i < n; i++)
-            if (a[i] != b[i]) {
-                printf("第 %d 轮发现反例 n=%d\n", t, n);
-                printf("  待测输出: "); for (int k = 0; k < n; k++) printf("%d ", a[k]);
-                printf("\n  正确答案: "); for (int k = 0; k < n; k++) printf("%d ", b[k]);
-                printf("\n");
-                return 1;
-            }
+        int n = rand() % 10;
+        int a[10];
+        for (int i = 0; i < n; i++) a[i] = rand() % 5;
+        int key = rand() % 6;
+        int expected = reference_search(a, n, key);
+        int actual = my_search(a, n, key);
+        if (actual != expected) {
+            printf("第%d轮：n=%d key=%d 原始输入=[", t + 1, n, key);
+            for (int i = 0; i < n; i++) printf("%s%d", i ? "," : "", a[i]);
+            printf("] 期望=%d 实际=%d\n", expected, actual);
+            return 1;
+        }
     }
-    printf("%d 轮全部通过\n", rounds);
+    printf("%d轮测试通过，不等于正确性证明\n", rounds);
     return 0;
 }
 // #endregion frame
 
 int main(void)
 {
-    srand(12345);                                  /* 固定种子，课堂可复现 */
-    printf("=== 对拍朴素算法自身（应通过）===\n");
-    stress(naive_sort, 1000);
-    printf("\n=== 对拍待测的 bad_sort（应抓到反例）===\n");
-    stress(bad_sort, 1000);
+    int a[] = {2, 2, 1};
+    assert(reference_search(NULL, 0, 2) == -1);
+    assert(reference_search(a, 1, 2) == 0);
+    assert(reference_search(a, 1, 1) == -1);
+    assert(reference_search(a, 3, 1) == 2);
+    assert(reference_search(a, 3, 9) == -1);
+    assert(reference_search(a, 3, 2) == 0);
+    assert(bad_search(a, 3, 2) == 1);
+    printf("固定反例：[2,2,1] key=2，期望0，错误实现返回1\n");
+
+    srand(12345);                    /* 相同环境便于复现，不保证跨平台轮数 */
+    if (stress(reference_search, 1000) != 0) return 1;
+    printf("对拍故意错误的查找实现：\n");
+    if (!stress(bad_search, 1000))
+        printf("本轮未随机发现；固定反例仍已证明契约违反\n");
     return 0;
 }
