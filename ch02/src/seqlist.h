@@ -22,6 +22,7 @@ bool SeqListSet(SeqList &L, int pos, ElemType x);
 int SeqListFind(const SeqList &L, ElemType x);
 bool SeqListInsert(SeqList &L, int pos, ElemType x);
 bool SeqListErase(SeqList &L, int pos, ElemType &out);
+int SeqListDeleteValue(SeqList &L, ElemType x);
 bool SeqListReserve(SeqList &L, int newcap);
 bool SeqListPushBack(SeqList &L, ElemType x);
 void SeqListTraverse(const SeqList &L, void (*visit)(ElemType));

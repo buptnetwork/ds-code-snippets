@@ -84,6 +84,18 @@ bool SeqListErase(SeqList &L, int pos, ElemType &out) {
 }
 // #endregion erase
 
+// #region delete-value
+// 删除所有值为 x 的元素，返回删除个数。采用读写双指针，一次遍历完成紧凑，O(n)。
+int SeqListDeleteValue(SeqList &L, ElemType x) {
+    int w = 0;
+    for (int r = 0; r < L.size; ++r)
+        if (!(L.data[r] == x)) L.data[w++] = L.data[r];
+    int removed = L.size - w;
+    L.size = w;
+    return removed;
+}
+// #endregion delete-value
+
 bool SeqListPushBack(SeqList &L, ElemType x) {
     return SeqListInsert(L, L.size, x);
 }
