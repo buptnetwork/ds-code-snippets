@@ -24,7 +24,7 @@
 | make | 任意（仅 ch02 命令行构建需要） | `make --version` |
 
 - macOS：安装 Xcode Command Line Tools（`xcode-select --install`）即可获得 clang++、make；CMake 可用 `brew install cmake`。
-- Windows：建议安装 Visual Studio 或 MinGW-w64，并安装 CMake。
+- Windows：建议安装 MinGW-w64 或 Visual Studio，并安装 CMake。
 
 ---
 
