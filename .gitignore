@@ -1,0 +1,36 @@
+# 本文件是「学生独立仓库」的根 .gitignore。
+# 主课件仓库的根 .gitignore 不会随 git subtree 拆分带过来，故此处单独维护，
+# 避免把编译产物 / IDE 私有配置提交进共享仓库。
+
+# ---- 构建目录 ----
+build/
+cmake-build-*/
+.build.local/
+.cmake-verify.local/
+*.local/
+
+# ---- 就地配置 CMake 时的生成物 ----
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+
+# ---- 编译中间产物与可执行文件 ----
+*.o
+*.obj
+*.out
+*.app
+*.exe
+*.dSYM/
+
+# ch01 单文件示例就地编译出的无扩展名可执行文件（源文件为同名 .cpp/.c）
+ch01/bincounter
+
+# ---- IDE / 编辑器私有配置 ----
+.idea/
+.vscode/
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db
