@@ -58,10 +58,19 @@
 
 ## 用命令行构建
 
-### ch01（统一使用 CMake）
+### ch01（make 或 CMake 二选一）
 
-> ⚠️ `ch01/Makefile` 是早期遗留的单目标模板，其引用的 `complex.cpp`/`main.cpp` 已移动到
-> `complex-opaque/`、`complex-ref/` 子目录，直接 `make` 会报错。ch01 请一律用 CMake。
+方式 A —— Makefile：
+
+```bash
+cd ch01
+make            # 构建全部 15 个示例，产物在 .build.local/
+make check      # 运行 14 个自检程序（mem-errors 是故意的 UB 演示，不在其中）
+make clean      # 清理
+.build.local/sorts   # 运行某个示例
+```
+
+方式 B —— CMake（便于 CLion / VS Code）：
 
 ```bash
 cd ch01
@@ -71,13 +80,16 @@ ctest --test-dir build --output-on-failure     # 运行全部测试
 ./build/bin/sorts                              # 运行某个示例
 ```
 
-只想快速跑根目录下的某个单文件示例，也可直接编译：
+只想快速跑根目录下的某个单文件示例，也可直接编译（产物放进已被忽略的 .build.local/）：
 
 ```bash
 cd ch01
-g++ -std=c++17 -Wall -Wextra -g count-examples.cpp -o build/count-examples
-./build/count-examples
+mkdir -p .build.local
+g++ -std=c++17 -Wall -Wextra -g count-examples.cpp -o .build.local/count-examples
+./.build.local/count-examples
 ```
+
+> **多文件工程示例**：`complex-opaque/`、`complex-ref/` 各带一个「十行模板」Makefile —— `cd` 进去后 `make` 生成 `demo`、`make run` 运行、`make clean` 清理（与课件页的统一编译命令一致）。根目录的综合 Makefile 也会把它们分别构建为 `.build.local/complex-opaque`、`.build.local/complex-ref`。
 
 ### ch02（make 或 CMake 二选一）
 
@@ -117,4 +129,3 @@ ctest --test-dir build --output-on-failure
 
 - **CLion 打开后没有目标 / 报找不到 `CMakeLists.txt`**：多半是打开了仓库根目录，请改为打开 `ch01` 或 `ch02`。
 - **测试全部“通过”但没有实际校验**：检查是否误用了 Release 构建（`NDEBUG` 使 `assert` 失效），改回 Debug。
-- **ch01 `make` 报 `No rule to make target 'complex.o'`**：见上文，ch01 请用 CMake。

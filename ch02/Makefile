@@ -2,7 +2,7 @@ CXX := c++
 CXXFLAGS := -std=c++17 -g -Wall -Wextra -Wpedantic
 OUT := .build.local
 
-.PHONY: all lesson1 lesson2 lesson3 check
+.PHONY: all lesson1 lesson2 lesson3 check clean
 all: lesson1 lesson2 lesson3
 lesson1: $(OUT)/demo_basic $(OUT)/test_seqlist $(OUT)/insert_bug
 lesson2: $(OUT)/demo_link $(OUT)/demo_memory $(OUT)/sizeof_probe $(OUT)/test_linklist $(OUT)/list_bug
@@ -67,3 +67,6 @@ check: all
 	$(OUT)/demo_poly
 	$(OUT)/demo_lru
 	$(OUT)/demo_locality --check
+
+clean:
+	rm -rf $(OUT)
