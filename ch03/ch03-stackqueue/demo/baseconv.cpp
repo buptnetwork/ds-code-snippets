@@ -16,7 +16,7 @@ void Conversion(int N, int base) {                 // 前置：N>=0，2<=base<=1
         N /= base;
     }
     ElemType x;
-    while (SS_Pop(S, x)) putchar(digit(x));        // 下溢作终止；高位先输出
+    while (SS_Pop(S, x)) putchar(digit(x));        // 空栈返回 false；高位先输出
     putchar('\n'); SS_Destroy(S);
 }
 // #endregion conversion
