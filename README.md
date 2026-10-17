@@ -8,12 +8,14 @@
 ```
 .
 ├── ch01/   第 1 章 绪论：算法分析与复杂度（C / C++ 单文件示例 + 多文件工程模板）
-└── ch02/   第 2 章 线性表：顺序表、链表、链表算法与应用（C++17 多目标工程）
+├── ch02/   第 2 章 线性表：顺序表、链表、链表算法与应用（C++17 多目标工程）
+└── ch03/   第 3 章 栈与队列：ch03-stackqueue/ 顺序栈+链式栈与两个应用（C++17，仅 make 构建）
 ```
 
 - **ch01**：根目录下每个 `.cpp` / `.c` 都是各自带 `main`、只依赖系统头文件的独立小程序；
   另含 `complex-opaque/`、`complex-ref/` 两套「多文件工程」示例（不透明指针 vs 引用两种封装）。
 - **ch02**：`src/` 是数据结构实现，`include/` 是公共类型，`demo/` 是演示与测试程序，`bugs/` 是反面教材。
+- **ch03**：工程在子目录 `ch03-stackqueue/`（本章三次课共用），目录约定同 ch02（`src/` 实现、`include/` 公共类型、`demo/` 演示、`bugs/` 反例）；**仅 Makefile、无 CMake**，当前只登记了第 1 次课目标。
 
 ## 环境准备
 
@@ -21,7 +23,7 @@
 |---|---|---|
 | C++ 编译器 | 支持 C++17（g++ 或 clang++） | `g++ --version` / `clang++ --version` |
 | CMake | ≥ 3.16 | `cmake --version` |
-| make | 任意（仅 ch02 命令行构建需要） | `make --version` |
+| make | 任意（ch02 / ch03 命令行构建需要；ch03 只能用它） | `make --version` |
 
 - macOS：安装 Xcode Command Line Tools（`xcode-select --install`）即可获得 clang++、make；CMake 可用 `brew install cmake`。
 - Windows：建议安装 MinGW-w64 或 Visual Studio，并安装 CMake。
@@ -32,6 +34,8 @@
 
 > CLion 以 **CMake 工程**为单位。`snippets` 根目录没有顶层 `CMakeLists.txt`，
 > **请分别打开 `ch01` 或 `ch02` 目录**，不要打开仓库根目录。
+>
+> **ch03 例外**：它只有 Makefile、没有 CMake 工程，CLion 无法直接加载；请用命令行构建（见下文「ch03（仅 Makefile）」小节），或用 VS Code / 任意编辑器打开 `ch03/ch03-stackqueue/` 目录。
 
 1. `File → Open…`，选择 `ch01/`（或 `ch02/`）目录，CLion 会自动识别其中的 `CMakeLists.txt` 并加载工程。
 2. 首次打开时在弹窗中确认工具链（Toolchain），等待 CMake 配置完成。
@@ -111,6 +115,29 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+### ch03（仅 Makefile）
+
+工程在子目录 `ch03/ch03-stackqueue/`（本章三次课共用同一工程）。它**没有 CMakeLists.txt**，只能用命令行 `make` 构建：
+
+```bash
+cd ch03/ch03-stackqueue
+make            # 构建本次课全部目标，产物在 .build.local/
+make check      # 依次运行三个演示 + 三个反例，核对输出
+make clean      # 清理
+.build.local/bracket   # 运行某个演示
+```
+
+只想单独编译某个演示（需连同它依赖的实现一起编）：
+
+```bash
+cd ch03/ch03-stackqueue
+mkdir -p .build.local
+c++ -std=c++17 -Wall -Wextra -g demo/bracket.cpp src/seqstack.cpp -o .build.local/bracket
+./.build.local/bracket
+```
+
+> 第 1 次课目标：`demo_stack`（顺序栈/链式栈演示）、`bracket`（括号匹配）、`baseconv`（进制转换）三个正确实现，加 `bracket_bug`、`baseconv_bug`、`pushorder_bug` 三个反面教材。当前 Makefile 只登记了第 1 次课（`lesson1`），第 2、3 次课目标待补。ch03 的前置条件违例用 `fprintf + exit(1)` 处理，不依赖 `assert`。
 
 ---
 
