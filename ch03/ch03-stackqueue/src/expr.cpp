@@ -79,7 +79,7 @@ bool EvalPostfix(const char *post, double &result) {
                 case '/': v = a / b; break;
                 default: break;
             }
-            ok = std::isfinite(v) && SD_Push(S, v);
+            ok = std::isfinite(v) && SD_Push(S, v);   // 溢出得 inf；isfinite 返回假，不入栈
         }
     }
     if (ok && SD_Length(S) == 1) ok = SD_Pop(S, result);
