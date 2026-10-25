@@ -35,7 +35,7 @@ int  CQ_Length(const CircQueue &Q) { return Q.size; }   // 方案二：直接返
 
 // #region enqueue
 bool CQ_EnQueue(CircQueue &Q, const ElemType &e) {
-    if (CQ_Full(Q)) return false;                       // 真满：由调用者决定怎么办，原队不变
+    if (CQ_Full(Q)) return false;                       // 真满：队列不变，由调用者决定
     Q.data[Q.rear] = e;
     Q.rear = (Q.rear + 1) % Q.capacity;                 // 关键：绕回
     Q.size++;

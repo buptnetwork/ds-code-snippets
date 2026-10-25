@@ -24,7 +24,7 @@ bool LQ_EnQueue(LinkQueue &Q, const ElemType &e) {
     QNode *p = (QNode *)malloc(sizeof(QNode));
     if (p == NULL) return false;                        // 唯一的“队满”来源
     p->data = e; p->next = NULL;
-    Q.rear->next = p;                                   // ① 挂到尾结点后面（空队时 rear 即头结点，写法相同）
+    Q.rear->next = p;                                   // ① 挂到尾结点之后
     Q.rear = p;                                         // ② 尾指针后移
     Q.size++;
     return true;
@@ -37,7 +37,7 @@ bool LQ_DeQueue(LinkQueue &Q, ElemType &out) {
     QNode *p = Q.front->next;                           // ① 第一个数据结点
     out = p->data;
     Q.front->next = p->next;                            // ② 头结点跨过它
-    if (Q.rear == p) Q.rear = Q.front;                  // ③ ★ 删的是最后一个结点，rear 必须回退
+    if (Q.rear == p) Q.rear = Q.front;                  // ③ ★ 删最后结点时回退
     free(p);                                            // ④
     Q.size--;
     return true;
