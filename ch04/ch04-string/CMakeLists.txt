@@ -30,3 +30,17 @@ target_compile_definitions(test_string PRIVATE CH04_TEST_ALLOC)
 enable_testing()
 add_test(NAME string_boundaries COMMAND test_string)
 add_test(NAME classroom_demo COMMAND demo_string)
+
+# 第 2 次课：与表示实现分离的首次字节匹配。
+add_executable(demo_match demo_match.cpp match_bf.cpp match_kmp.cpp)
+add_executable(test_match test_match.cpp match_bf.cpp match_kmp.cpp)
+add_test(NAME match_boundaries COMMAND test_match)
+add_test(NAME matching_demo COMMAND demo_match)
+
+# 第 3 次课：限定规模的教师演示，不增加 BM / AC 实现要求。
+add_executable(replace_demo replace_demo.cpp match_kmp.cpp)
+add_executable(rk_demo rk_demo.cpp)
+add_test(NAME replacement_demo COMMAND replace_demo)
+add_test(NAME replacement_boundaries COMMAND replace_demo --check)
+add_test(NAME rolling_hash_demo COMMAND rk_demo)
+add_test(NAME rolling_hash_boundaries COMMAND rk_demo --check)
